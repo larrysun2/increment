@@ -51,7 +51,12 @@ setInterval(() => {
   const newResetDate = creditsResetDate()
   if(resetDate !== newResetDate) {
     resetDate = newResetDate;
-    ref.update(Object.fromEntries([...creditCounters.keys()].map(x => [x, {count: 0}])))
+    creditCounters.forEach((x, k) => {
+      ref.child("/" + k).update({
+        ...x,
+        count: 0
+      })
+    })
   }
 }, 60e3)
 
