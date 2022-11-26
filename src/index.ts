@@ -3,6 +3,36 @@ import express from "express"
 import cookieParser from "cookie-parser"
 import bodyParser from "body-parser"
 import cors from "cors"
+import firebase from "firebase/compat/app"
+import "firebase/compat/database"
+
+
+interface Counter {
+  count: number
+  limit: number
+}
+
+const firebaseConfig = {
+  apiKey: "AIzaSyA97sLAkpnK4FMkLgD_euWq2K3APHPWYnI",
+  authDomain: "wallet-store-46c20.firebaseapp.com",
+  databaseURL: "https://wallet-store-46c20-default-rtdb.firebaseio.com",
+  projectId: "wallet-store-46c20",
+  storageBucket: "wallet-store-46c20.appspot.com",
+  messagingSenderId: "241664018764",
+  appId: "1:241664018764:web:4876e5424bcd8ae3cfa7e9",
+  measurementId: "G-4HL7C6F628"
+};
+
+
+let creditCounters = new Map<string, Counter>();
+const db_app = firebase.initializeApp(firebaseConfig)
+const db = db_app.database()
+const ref = db.ref("/creditsControl")
+
+ref.on("value", (snap) => {
+  creditCounters = new Map(Object.entries(snap.val()))
+})
+
 
 const devPort = 8080
 export const port = parseInt(process.env.PORT || "0") || devPort;
@@ -10,12 +40,8 @@ const isDev = port === devPort
 
 dotenv.config();
 
-interface Counter {
-  count: number
-  limit: number
-}
 
-export let creditCounters = new Map<string, Counter>();
+
 
 const creditsResetDate = () => new Date(new Date(new Date().toUTCString().replace(" GMT", "")).getTime() - 3600 * 12 * 1000).toLocaleDateString()
 
@@ -25,9 +51,7 @@ setInterval(() => {
   const newResetDate = creditsResetDate()
   if(resetDate !== newResetDate) {
     resetDate = newResetDate;
-    creditCounters.forEach(counter => {
-      counter.count = 0
-    })
+    ref.update(Object.fromEntries([...creditCounters.keys()].map(x => [x, {count: 0}])))
   }
 }, 60e3)
 
@@ -40,16 +64,16 @@ const getCreditCounter = (id : string) => {
 }
 
 const setCreditCounter = (id : string, counter : Counter) => {
-  return creditCounters.set(id, counter)
+  return ref.child("/" + id).set(counter)
 }
 
 export const incrementCreditCounter = (id : string) => {
   const {count, limit} = getCreditCounter(id)
   if(count < limit) {
-    creditCounters.set(id, {
-      limit,
-      count: count + 1
-    });
+    ref.child("/" + id).set({
+      count: count + 1,
+      limit
+    })
     return true
   }
   return false
