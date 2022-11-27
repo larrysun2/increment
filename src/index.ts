@@ -43,7 +43,7 @@ dotenv.config();
 
 
 
-const creditsResetDate = () => new Date(new Date(new Date().toUTCString().replace(" GMT", "")).getTime() - 3600 * 12 * 1000).toLocaleDateString()
+const creditsResetDate = () => new Date(new Date(new Date().toUTCString().replace(" GMT", "")).getTime() - 3600 * 9 * 1000).toLocaleDateString()
 
 let resetDate = creditsResetDate();
 
@@ -92,12 +92,18 @@ const setCreditCounterLimit = (id : string, limit : Counter["limit"]) => {
   })
 }
 
+let skipReset = false
 const resetCreditCounter = (id : string) => {
   const counter = getCreditCounter(id)
-  setCreditCounter(id, {
+  !skipReset && setCreditCounter(id, {
     count: 0,
     limit: counter?.limit || 0
   })
+}
+
+const skipNextCounterReset = () => {
+  skipReset = !skipReset
+  return skipReset
 }
 
 const app = express();
@@ -115,6 +121,12 @@ app.get("/reset/:id", (req, res) => {
       result: true
     })
   }
+})
+
+app.get("/skip-reset", (req, res) => {
+  res.json({
+    result: skipNextCounterReset()
+  })
 })
 
 app.get("/increment/:id", (req, res) => {

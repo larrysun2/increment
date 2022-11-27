@@ -26,7 +26,7 @@ const devPort = 8080;
 export const port = parseInt(process.env.PORT || "0") || devPort;
 const isDev = port === devPort;
 dotenv.config();
-const creditsResetDate = () => new Date(new Date(new Date().toUTCString().replace(" GMT", "")).getTime() - 3600 * 12 * 1000).toLocaleDateString();
+const creditsResetDate = () => new Date(new Date(new Date().toUTCString().replace(" GMT", "")).getTime() - 3600 * 9 * 1000).toLocaleDateString();
 let resetDate = creditsResetDate();
 setInterval(() => {
     const newResetDate = creditsResetDate();
@@ -64,12 +64,17 @@ const setCreditCounterLimit = (id, limit) => {
         limit
     });
 };
+let skipReset = false;
 const resetCreditCounter = (id) => {
     const counter = getCreditCounter(id);
-    setCreditCounter(id, {
+    !skipReset && setCreditCounter(id, {
         count: 0,
         limit: (counter === null || counter === void 0 ? void 0 : counter.limit) || 0
     });
+};
+const skipNextCounterReset = () => {
+    skipReset = !skipReset;
+    return skipReset;
 };
 const app = express();
 app.use(cors());
@@ -83,6 +88,11 @@ app.get("/reset/:id", (req, res) => {
             result: true
         });
     }
+});
+app.get("/skip-reset", (req, res) => {
+    res.json({
+        result: skipNextCounterReset()
+    });
 });
 app.get("/increment/:id", (req, res) => {
     const { id } = req.params;
