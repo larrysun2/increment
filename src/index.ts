@@ -28,38 +28,14 @@ let creditCounters = new Map<string, Counter>();
 const db_app = firebase.initializeApp(firebaseConfig)
 const db = db_app.database()
 const ref = db.ref("/creditsControl")
+const devPort = 8080
+const port = parseInt(process.env.PORT || "0") || devPort
 
 ref.on("value", (snap) => {
   creditCounters = new Map(Object.entries(snap.val()))
 })
 
-
-const devPort = 8080
-export const port = parseInt(process.env.PORT || "0") || devPort;
-const isDev = port === devPort
-
 dotenv.config();
-
-
-
-
-const creditsResetDate = () => new Date(new Date(new Date().toUTCString().replace(" GMT", "")).getTime() - 3600 * 9 * 1000).toLocaleDateString()
-
-let resetDate = creditsResetDate();
-
-setInterval(() => {
-  const newResetDate = creditsResetDate()
-  if(resetDate !== newResetDate) {
-    resetDate = newResetDate;
-    creditCounters.forEach((x, k) => {
-      ref.child("/" + k).update({
-        ...x,
-        count: 0
-      })
-    })
-  }
-}, 60e3)
-
 
 const getCreditCounter = (id : string) => {
   return creditCounters.get(id) || {
@@ -92,18 +68,18 @@ const setCreditCounterLimit = (id : string, limit : Counter["limit"]) => {
   })
 }
 
-let skipReset = false
-const resetCreditCounter = (id : string) => {
+const resetCreditCounter = async (id : string) => {
   const counter = getCreditCounter(id)
-  !skipReset && setCreditCounter(id, {
+  await setCreditCounter(id, {
     count: 0,
     limit: counter?.limit || 0
   })
 }
 
-const skipNextCounterReset = () => {
-  skipReset = !skipReset
-  return skipReset
+const resetAllCreditCounters = async () => {
+  for(let [ id ] of creditCounters) {
+    await resetCreditCounter(id)
+  }
 }
 
 const app = express();
@@ -112,21 +88,23 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(cookieParser());
 
-app.get("/reset/:id", (req, res) => {
+app.get("/reset-all", async (req, res) => {
+  await resetAllCreditCounters()
+  
+  res.json({
+    result: true
+  })
+})
+
+app.get("/reset/:id", async (req, res) => {
   const { id } = req.params;
   if(id !== undefined) {
-    resetCreditCounter(id)
+    await resetCreditCounter(id)
 
     res.json({
       result: true
     })
   }
-})
-
-app.get("/skip-reset", (req, res) => {
-  res.json({
-    result: skipNextCounterReset()
-  })
 })
 
 app.get("/increment/:id", (req, res) => {
